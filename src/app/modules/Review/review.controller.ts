@@ -1,87 +1,91 @@
-import { NextFunction, Request, Response } from "express";
-import { sendApiResponse } from "../../utlis/responseHandler";
-import cloudinary from "../../utlis/cloudinary";
-import { IReview } from "./review.interface";
-import { Review } from "./review.model";
-import {
-  getAllReviewFromDB,
-  getReviewByIdFromDB,
-  createReviewFromDB,
-  updateReviewFromDB,
-} from "./review.service";
+import { Request, Response } from "express";
+import httpStatus from "http-status";
+import catchAsync from "../../../shared/catchAsync";
+import sendResponse from "../../../shared/sendResponse";
+import pick from "../../../shared/pick";
+import { review_filter_keys } from "./review.constant";
+import { pagination_keys } from "../../../constant/common";
+import { ReviewServices } from "./review.services";
 
-export const getAllReview = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const products = await getAllReviewFromDB();
-  sendApiResponse(res, 200, true, products);
+// *createReview
+const createReview = catchAsync(async (req: Request, res: Response) => {
+	const { ...review_data } = req.body;
+
+	const result = await ReviewServices.create_new_review(review_data);
+
+	sendResponse(res, {
+		status_code: httpStatus.OK,
+		success: true,
+		data: result,
+		message: "review created successfully",
+	});
+});
+
+//*  updateRreview
+const updateReview = catchAsync(async (req: Request, res: Response) => {
+	const { id: review_id } = req.params;
+
+	const { ...review_data } = req.body;
+	const result = await ReviewServices.review_update(
+		review_data,
+		review_id
+	);
+
+	sendResponse(res, {
+		status_code: httpStatus.OK,
+		success: true,
+		data: result,
+		message: "review updated successfully",
+	});
+});
+
+//*  Get all reviews
+const allReviews = catchAsync(async (req: Request, res: Response) => {
+	const filers = pick(req.query, review_filter_keys);
+	const pagination = pick(req.query, pagination_keys);
+
+	const result = await ReviewServices.get_all_reviews(filers, pagination);
+
+	sendResponse(res, {
+		status_code: httpStatus.OK,
+		success: true,
+		data: result,
+		message: "reviews retrieved successfully",
+	});
+});
+
+//  reviewDetails
+const reviewDetails = catchAsync(async (req: Request, res: Response) => {
+	const { id } = req.params;
+
+	const result = await ReviewServices.get_review_details(id);
+
+	sendResponse(res, {
+		status_code: httpStatus.OK,
+		success: true,
+		data: result,
+		message: "review details retrieved successfully",
+	});
+});
+
+// deletereview
+const deleteReview = catchAsync(async (req: Request, res: Response) => {
+	const { id } = req.params;
+	const result = await ReviewServices.delete_review(id);
+
+	sendResponse(res, {
+		status_code: httpStatus.OK,
+		success: true,
+		data: result,
+		message: "review deleted successfully",
+	});
+});
+
+export const reviewController = {
+	createReview,
+	reviewDetails,
+	updateReview,
+	deleteReview,
+	allReviews,
 };
 
-export const getReviewById = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const { id } = req.params;
-  const product = await getReviewByIdFromDB(id);
-  sendApiResponse(res, 200, true, product);
-};
-
-export const createReview = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const { review_name, review, description } = req.body;
-
-  // Upload image to Cloudinary
-  const result = await cloudinary.uploader.upload(
-    (req.file as Express.Multer.File).path
-  );
-
-  // Get the image URL from the Cloudinary response
-  const imageUrl = result.secure_url;
-  const newBlog: IReview = new Review({
-    review_name,
-    description,
-    review,
-    image: imageUrl,
-  });
-  const product = await createReviewFromDB(newBlog);
-  sendApiResponse(res, 200, true, product);
-};
-
-export const updateReview = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const { review_name, review, description } = req.body;
-  const productId = req.params.id;
-  const existingProduct: any = await Review.findById(productId);
-
-  let imageUrl: any = existingProduct.image;
-  if (req.file) {
-    const result = await cloudinary.uploader.upload(
-      (req.file as Express.Multer.File).path
-    );
-    imageUrl = result.secure_url;
-  }
-  const newBlog: any = new Review({
-    review_name,
-    description,
-    review,
-    image: imageUrl,
-  });
-  const newPlauload = {
-    review_name: newBlog.review_name,
-    description: newBlog.description,
-    review: newBlog.review,
-    image: newBlog.image
-  }
-
-  const result = await updateReviewFromDB(productId, newPlauload);
-  sendApiResponse(res, 200, true, result);
-};

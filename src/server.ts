@@ -1,18 +1,38 @@
-import app from "./app";
-import { log } from "./app/utlis/logger";
-const PORT=5000
+import config from "./config/index";
+import salon_app from "./salon_app";
 
-const startServer =async ():Promise<void> => {
-    try {
-        app.listen(5000, () => {
-          log.info(`🌐 Server started on port ${PORT}`);
-        });
-      } catch (err: any) {
-        log.error(err.message);
-      }
+// getting-started.js
+import { Server } from "http";
 
+process.on("uncaughtException", (error) => {
+	process.exit(1);
+});
 
+let server: Server;
 
+async function main() {
+	try {
+		server = salon_app.listen(config.port, () => {
+			console.log("Connected");
+			console.log(
+				`Application  listening on port ${config.port}`
+			);
+		});
+	} catch (error) {
+		console.log("Failed to connect database", error);
+	}
+
+	process.on("unhandledRejection", (err) => {
+		if (server) {
+			server.close(() => {
+				console.log(err);
+				process.exit(1);
+			});
+		} else {
+			process.exit(1);
+		}
+	});
 }
 
-startServer()
+main();
+
